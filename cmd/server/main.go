@@ -1,30 +1,62 @@
 package main
 
 import (
-	"net"
 	"log"
 	"fmt"
+	//"sync"
+	"net/http"
+	"encoding/json"
+	"io/ioutil"
+	"github.com/aaletov/go-chat/api"
 )
 
 const (
-	port = 8081
-	empty void
+	port = 8080
+	maxBodySize = 1048576
+	//empty void
 )
 
 func main() {
 	log.Println("Starting server")
 
-	laddr, _ := net.ResolveTCPAddr("tcp", fmt.Sprintf(":%d", port))
-	listener, _ := net.ListenTCP("tcp", laddr)
+	//waitingClients := new(sync.Map)
 
-	connections := make(map[string]void)
+	http.HandleFunc("/initChat", func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Content-Type") == "" {
+			msg := "Content-Type is empty"
+			http.Error(w, msg, http.StatusUnsupportedMediaType)
+			return
+		}
+		value := r.Header.Get("Content-Type")
+		if value != "application/json" {
+			msg := "Content-Type header is not application/json"
+			http.Error(w, msg, http.StatusUnsupportedMediaType)
+			return
+		}
+		
+		reader := http.MaxBytesReader(w, r.Body, maxBodySize)
+		body, err := ioutil.ReadAll(reader)
 
-	for {
-		conn, _ := listener.AcceptTCP()
-		go func() {
-			log.Printf("local addr: %v, remote addr: %v\n", conn.LocalAddr(), conn.RemoteAddr())
-		}()
-	}
+		if err != nil {
+			msg := "Unable to read body"
+			http.Error(w, msg, http.StatusUnprocessableEntity)
+			return
+		}
 
+		var registerRequest api.InitChatRequest
+		err = json.Unmarshal(body, &registerRequest)
+
+		if err != nil {
+			msg := "Invalid request body"
+			http.Error(w, msg, http.StatusUnprocessableEntity)
+			return
+		}
+
+		log.Printf("Register request data: %v", registerRequest.Key)	
+
+		w.WriteHeader(http.StatusOK)
+	})
+
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", port), nil))	
 	log.Println("Exiting server...")
 }
