@@ -1,3 +1,3 @@
 module github.com/aaletov/go-chat
 
-go 1.17
+go 1.19

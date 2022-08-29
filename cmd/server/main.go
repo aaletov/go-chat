@@ -5,9 +5,8 @@ import (
 	"fmt"
 	//"sync"
 	"net/http"
-	"encoding/json"
-	"io/ioutil"
 	"github.com/aaletov/go-chat/api"
+	"github.com/aaletov/go-chat/utils/httputil"
 )
 
 const (
@@ -22,37 +21,22 @@ func main() {
 	//waitingClients := new(sync.Map)
 
 	http.HandleFunc("/initChat", func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("Content-Type") == "" {
-			msg := "Content-Type is empty"
-			http.Error(w, msg, http.StatusUnsupportedMediaType)
-			return
-		}
-		value := r.Header.Get("Content-Type")
-		if value != "application/json" {
-			msg := "Content-Type header is not application/json"
-			http.Error(w, msg, http.StatusUnsupportedMediaType)
+		status, msg := httputil.ValidateContentType(w, r, "application/json")
+
+		if status != http.StatusOK {
+			http.Error(w, msg, status)
 			return
 		}
 		
-		reader := http.MaxBytesReader(w, r.Body, maxBodySize)
-		body, err := ioutil.ReadAll(reader)
+		var initRequest api.InitChatRequest
+		status, msg = httputil.Unmarshal(w, r, &initRequest)
 
-		if err != nil {
-			msg := "Unable to read body"
-			http.Error(w, msg, http.StatusUnprocessableEntity)
+		if status != http.StatusOK {
+			http.Error(w, msg, status)
 			return
 		}
 
-		var registerRequest api.InitChatRequest
-		err = json.Unmarshal(body, &registerRequest)
-
-		if err != nil {
-			msg := "Invalid request body"
-			http.Error(w, msg, http.StatusUnprocessableEntity)
-			return
-		}
-
-		log.Printf("Register request data: %v", registerRequest.Key)	
+		log.Printf("Register request data: %v", initRequest.Key)	
 
 		w.WriteHeader(http.StatusOK)
 	})
