@@ -6,6 +6,7 @@ import (
 	//"fmt"
 	"crypto/rsa"
 	"crypto/rand"
+	"flag"
 	"bytes"
 	"encoding/json"
 	"github.com/gorilla/websocket"
@@ -18,6 +19,10 @@ const (
 	remoteURL = "http://localhost:8080/initChat"
 	wsEndpoint = "ws://localhost:8080/ws"
 	keySize = 256
+)
+
+var (
+	msg = flag.String("msg", "", "")
 )
 
 func main() {
@@ -53,6 +58,14 @@ func main() {
 		panic(err)
 	}
 	log.Println(resp)
+
+	for {
+		err = c.WriteMessage(websocket.TextMessage, []byte(*msg))
+		if err != nil {
+			log.Println(err)
+			return
+		}
+	}
 	//log.Printf("Public key is: %v", privateKey.Public())
 
 	// laddr, _ := net.ResolveTCPAddr("tcp", fmt.Sprintf("127.0.0.1:%d", lport))

@@ -41,7 +41,7 @@ func InitChatHandler(w http.ResponseWriter, r *http.Request, waitingClients *syn
 	w.WriteHeader(http.StatusOK)
 }
 
-func WebSocketHandler(w http.ResponseWriter, r *http.Request) {
+func WebSocketHandler(w http.ResponseWriter, r *http.Request, mgr *chat.ChatManager) {
 	c, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Print("upgrade:", err)
