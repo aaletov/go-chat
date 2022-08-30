@@ -5,5 +5,6 @@ import (
 )
 
 type InitChatRequest struct {
-	Key rsa.PublicKey `json:"key"`
+	LocalKey rsa.PublicKey `json:"localKey"`
+	RemoteKey rsa.PublicKey `json:remoteKey`
 }

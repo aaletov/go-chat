@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 	"fmt"
-	//"sync"
+	"sync"
 	"net/http"
 	"github.com/aaletov/go-chat/pkg/server"
 )
@@ -17,10 +17,18 @@ const (
 func main() {
 	log.Println("Starting server")
 
-	//waitingClients := new(sync.Map)
+	waitingClients := new(sync.Map)
 
-	http.HandleFunc("/initChat", server.InitChatHandler)
+	http.HandleFunc("/initChat", func(w http.ResponseWriter, r *http.Request) {
+		server.InitChatHandler(w, r, waitingClients)
+	})
 
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", port), nil))	
+	http.HandleFunc("/ws", server.WebSocketHandler)
+
+	server := http.Server{
+		Addr: fmt.Sprintf(":%d", port),
+	}
+
+	log.Fatal(server.ListenAndServe())	
 	log.Println("Exiting server...")
 }
