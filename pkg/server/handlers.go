@@ -2,51 +2,46 @@ package server
 
 import (
 	"log"
-	"sync"
+	"io"
 	"net/http"
-	"github.com/aaletov/go-chat/utils/httputil"
-	"github.com/aaletov/go-chat/api"
+	"encoding/json"
 	"github.com/gorilla/websocket"
+	"github.com/aaletov/go-chat/pkg/chat"
 )
 
 var upgrader = websocket.Upgrader{}
 
-func InitChatHandler(w http.ResponseWriter, r *http.Request, waitingClients *sync.Map) {
-	status, msg := httputil.ValidateContentType(w, r, "application/json")
-
-	if status != http.StatusOK {
-		http.Error(w, msg, status)
-		log.Printf("Content-Type is invalid: %v", msg)
-		return
-	}
-	
-	var initRequest api.InitChatRequest
-	status, msg = httputil.Unmarshal(w, r, &initRequest)
-
-	if status != http.StatusOK {
-		http.Error(w, msg, status)
-		log.Printf("Unable to unmarshal data: %v", msg)
-		return
-	}
-
-	_, ok := waitingClients.Load(initRequest.RemoteKey)
-
-	if !ok {
-		waitingClients.Store(initRequest.LocalKey, initRequest.RemoteKey)
-		log.Printf("The client %v haven't initialized chat; added %v to waitingClients", initRequest.RemoteKey, initRequest.LocalKey)
-		w.WriteHeader(http.StatusOK)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-}
-
 func WebSocketHandler(w http.ResponseWriter, r *http.Request, mgr *chat.ChatManager) {
 	c, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Print("upgrade:", err)
+		log.Printf("upgrade: %v\n", err)
 		return
 	}
 	log.Println("Upgraded to websocket")
-	defer c.Close()
+	defer func() {
+		if err != nil {
+			c.Close()
+		}
+	}()
+
+	_, reader, err := c.NextReader()
+	buf, err := io.ReadAll(reader)
+
+	if err != nil {
+		log.Printf("read: %v\n", err)
+		return
+	}
+
+	var seq chat.ChatInitSequence
+	err = json.Unmarshal(buf, &seq)
+	log.Println(seq)
+
+	if err != nil {
+		log.Printf("unmarshal: %v\n", err)
+		return
+	}
+
+	mgr.Add(c, seq)
+	log.Printf("Added client to manager")
+	return
 }

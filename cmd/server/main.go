@@ -3,9 +3,9 @@ package main
 import (
 	"log"
 	"fmt"
-	"sync"
 	"net/http"
 	"github.com/aaletov/go-chat/pkg/server"
+	"github.com/aaletov/go-chat/pkg/chat"
 )
 
 const (
@@ -17,17 +17,16 @@ const (
 func main() {
 	log.Println("Starting server")
 
-	waitingClients := new(sync.Map)
-
-	http.HandleFunc("/initChat", func(w http.ResponseWriter, r *http.Request) {
-		server.InitChatHandler(w, r, waitingClients)
+	mgr := chat.NewManager()
+	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+		server.WebSocketHandler(w, r, mgr)
 	})
-
-	http.HandleFunc("/ws", server.WebSocketHandler)
 
 	server := http.Server{
 		Addr: fmt.Sprintf(":%d", port),
 	}
+
+	go mgr.Start()
 
 	log.Fatal(server.ListenAndServe())	
 	log.Println("Exiting server...")

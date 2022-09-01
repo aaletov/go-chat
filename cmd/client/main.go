@@ -1,16 +1,15 @@
 package main
 
 import (
-	"net/http"
 	"log"
-	//"fmt"
-	"crypto/rsa"
-	"crypto/rand"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	//"crypto/rand"
+	"math/big"
 	"flag"
-	"bytes"
 	"encoding/json"
 	"github.com/gorilla/websocket"
-	"github.com/aaletov/go-chat/api"
+	"github.com/aaletov/go-chat/pkg/chat"
 )
 
 const (
@@ -25,26 +24,49 @@ var (
 	msg = flag.String("msg", "", "")
 )
 
+const (
+	X = "22932723935884356325978933133478612719870509751359180570662911120639"
+	Y = "10362621957340144616877306252686708115149192148772687366931180099725"
+)
+
 func main() {
+	flag.Parse()
 	log.Println("Starting client")
 
-	randReader := rand.Reader
-	privateKey, err := rsa.GenerateKey(randReader, keySize)
+	//randReader := rand.Reader
+	curve := elliptic.P224()
+	log.Println(curve.Params())
+	// privateKey, err := ecdsa.GenerateKey(curve, randReader)
 
-	if err != nil {
-		panic(err)
+	// if err != nil {
+	// 	panic(err)
+	// }
+
+	// lKey := privateKey.Public().(*ecdsa.PublicKey)
+	// rKey := privateKey.Public().(*ecdsa.PublicKey)
+
+	// log.Println(lKey.X)
+	// log.Println(rKey.Y)
+
+	xBig := new(big.Int)
+	xBig.SetString(X, 10)
+	yBig := new(big.Int)
+	yBig.SetString(Y, 10)
+
+	log.Println(xBig)
+	log.Println(yBig)
+	lKey := &ecdsa.PublicKey{curve, xBig, yBig}
+	rKey := &ecdsa.PublicKey{curve, xBig, yBig}
+
+	initRequest := chat.ChatInitSequence{
+		elliptic.Marshal(curve, lKey.X, lKey.Y),
+		elliptic.Marshal(curve, rKey.X, rKey.Y),
 	}
-
-	lKey := privateKey.Public().(*rsa.PublicKey)
-	rKey := privateKey.Public().(*rsa.PublicKey)
-	initRequest := api.InitChatRequest{*lKey, *rKey}
 	requestJSON, err := json.Marshal(initRequest)
 
 	if err != nil {
 		panic(err)
 	}
-
-	resp, err := http.Post(remoteURL, "application/json", bytes.NewBuffer(requestJSON))
 
 	c, _, err := websocket.DefaultDialer.Dial(wsEndpoint, nil)
 
@@ -54,11 +76,14 @@ func main() {
 	log.Println("Opened websocket")
 	defer c.Close()
 
+	log.Println(requestJSON)
+	err = c.WriteMessage(websocket.TextMessage, []byte(requestJSON))
+
 	if err != nil {
 		panic(err)
 	}
-	log.Println(resp)
 
+	log.Println(*msg)
 	for {
 		err = c.WriteMessage(websocket.TextMessage, []byte(*msg))
 		if err != nil {
