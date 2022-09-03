@@ -3,10 +3,11 @@ package chat
 import (
 	"sync"
 	"log"
+	"time"
 	"github.com/gorilla/websocket"
 )
 
-// key = ChatUniqueIdentifier; value = ClientConnection
+// key = ChatUniqueIdentifier; value = *websocket.Conn
 type ChatManager struct {
 	WaitingConns sync.Map
 	Chats chan Chat
@@ -19,8 +20,8 @@ func NewManager() *ChatManager {
 	}
 }
 
-func (m *ChatManager) Add(c *websocket.Conn, seq ChatInitSequence) {
-	keyPair := NewKeyPair(seq)
+func (m *ChatManager) Add(c *websocket.Conn, seq *ChatInitSequence) {
+	keyPair := NewKeyPair(*seq)
 	idPtr := keyPair.GetChatIdentifier()
 	conn, loaded := m.WaitingConns.LoadOrStore(idPtr.String(), c)
 	
@@ -36,6 +37,7 @@ func (m *ChatManager) Add(c *websocket.Conn, seq ChatInitSequence) {
 
 func (m *ChatManager) Start() {
 	for chat := range m.Chats {
+		close := make(chan bool)
 		go func(){
 			for {
 				err := sendMessage(chat.First, chat.Second)
@@ -44,7 +46,7 @@ func (m *ChatManager) Start() {
 					break
 				}
 			}
-			chat.First.Close()
+			close <- true
 		}()
 	
 		go func(){
@@ -55,6 +57,15 @@ func (m *ChatManager) Start() {
 					break
 				}
 			}
+			close <- true
+		}()
+
+		go func(){
+			<- close
+			deadline := time.Now().Add(time.Duration(1000000))
+			chat.First.WriteControl(websocket.CloseMessage, []byte{}, deadline)
+			chat.First.Close()
+			chat.Second.WriteControl(websocket.CloseMessage, []byte{}, deadline)
 			chat.Second.Close()
 		}()
 	}	

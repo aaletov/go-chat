@@ -10,8 +10,6 @@ import (
 
 const (
 	port = 8080
-	maxBodySize = 1048576
-	//empty void
 )
 
 func main() {

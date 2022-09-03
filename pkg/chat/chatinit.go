@@ -1,16 +1,40 @@
 package chat
 
 import (
+	"io"
+	"encoding/json"
 	"log"
 	"crypto/elliptic"
 	"crypto/ecdsa"
 	"math/big"
+	"github.com/gorilla/websocket"
 )
 
 // Transfers points on eliptic curve P224
 type ChatInitSequence struct {
 	LocalKey []byte `json:"localKey"`
 	RemoteKey []byte `json:remoteKey`
+}
+
+func ReadChatInitSeq(c *websocket.Conn) (*ChatInitSequence, error) {
+	_, reader, err := c.NextReader()
+	buf, err := io.ReadAll(reader)
+
+	if err != nil {
+		log.Printf("read: %v\n", err)
+		return nil, err
+	}
+
+	var seq ChatInitSequence
+	err = json.Unmarshal(buf, &seq)
+	log.Println(seq)
+
+	if err != nil {
+		log.Printf("unmarshal: %v\n", err)
+		return nil, err
+	}
+
+	return &seq, nil
 }
 
 type ChatKeyPair struct {

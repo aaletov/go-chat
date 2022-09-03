@@ -2,9 +2,7 @@ package server
 
 import (
 	"log"
-	"io"
 	"net/http"
-	"encoding/json"
 	"github.com/gorilla/websocket"
 	"github.com/aaletov/go-chat/pkg/chat"
 )
@@ -24,20 +22,10 @@ func WebSocketHandler(w http.ResponseWriter, r *http.Request, mgr *chat.ChatMana
 		}
 	}()
 
-	_, reader, err := c.NextReader()
-	buf, err := io.ReadAll(reader)
+	seq, err := chat.ReadChatInitSeq(c)
 
 	if err != nil {
-		log.Printf("read: %v\n", err)
-		return
-	}
-
-	var seq chat.ChatInitSequence
-	err = json.Unmarshal(buf, &seq)
-	log.Println(seq)
-
-	if err != nil {
-		log.Printf("unmarshal: %v\n", err)
+		log.Printf("initseq read error: %v\n", err)
 		return
 	}
 
